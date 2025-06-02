@@ -1,0 +1,37 @@
+{
+  "name": "geoip-service",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "update-geo": "node node_modules/geoip-lite/scripts/update-data.js"
+  },
+  "dependencies": {
+    "@types/node-fetch": "^2.6.12",
+    "@types/ua-parser-js": "^0.7.39",
+    "axios": "^1.9.0",
+    "crypto": "^1.0.1",
+    "dns": "^0.2.2",
+    "geoip-country": "^5.0.202505302342",
+    "geoip-lite": "^1.4.10",
+    "js-base64": "^3.7.7",
+    "maxmind-db-reader": "^0.2.1",
+    "next": "15.1.0",
+    "node-fetch": "^3.3.2",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "ua-parser-js": "^2.0.3"
+  },
+  "devDependencies": {
+    "@types/geoip-lite": "^1.4.4",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "eslint": "^8",
+    "eslint-config-next": "15.1.0",
+    "typescript": "^5"
+  }
+}
