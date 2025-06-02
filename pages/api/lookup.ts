@@ -4,7 +4,55 @@ import { UAParser } from "ua-parser-js";
 import crypto from "crypto";
 import axios from "axios";
 
-// Client IP'sini al
+const sessionStore: {
+  [key: string]: { count: number; firstSeen: number; lastSeen: number };
+} = {};
+
+setInterval(() => {
+  const now = Date.now();
+  Object.keys(sessionStore).forEach((key) => {
+    if (now - sessionStore[key].lastSeen > 3600000) {
+      delete sessionStore[key];
+    }
+  });
+}, 300000);
+
+function getSessionInfo(ip: string, userAgent: string) {
+  const sessionKey = crypto
+    .createHash("md5")
+    .update(`${ip}:${userAgent}`)
+    .digest("hex");
+  const now = Date.now();
+
+  if (!sessionStore[sessionKey]) {
+    sessionStore[sessionKey] = {
+      count: 1,
+      firstSeen: now,
+      lastSeen: now,
+    };
+
+    return {
+      firstRequest: true,
+      requestCount: 1,
+      lastActivity: new Date(now).toISOString(),
+      sessionDuration: "0ms",
+      sessionId: sessionKey.substring(0, 8),
+    };
+  } else {
+    sessionStore[sessionKey].count++;
+    const sessionDuration = now - sessionStore[sessionKey].firstSeen;
+    sessionStore[sessionKey].lastSeen = now;
+
+    return {
+      firstRequest: false,
+      requestCount: sessionStore[sessionKey].count,
+      lastActivity: new Date(sessionStore[sessionKey].lastSeen).toISOString(),
+      sessionDuration: `${sessionDuration}ms`,
+      sessionId: sessionKey.substring(0, 8),
+    };
+  }
+}
+
 function getClientIp(req: NextApiRequest): string {
   const forwarded = req.headers["x-forwarded-for"];
   const real = req.headers["x-real-ip"];
@@ -17,15 +65,16 @@ function getClientIp(req: NextApiRequest): string {
   return req.socket.remoteAddress || "127.0.0.1";
 }
 
-// ISP ve ASN bilgilerini alma
 async function getIspInfo(ip: string) {
   try {
-    // IP-API.com ücretsiz servisi (günde 1000 istek limiti)
-    const response = await axios.get(`http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,asname,mobile,proxy,hosting,query`, {
-      timeout: 5000,
-    });
-    
-    if (response.data.status === 'success') {
+    const response = await axios.get(
+      `http://ip-api.com/json/${ip}?fields=status,message,country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,asname,mobile,proxy,hosting,query`,
+      {
+        timeout: 5000,
+      }
+    );
+
+    if (response.data.status === "success") {
       return {
         isp: response.data.isp || "Bilinmiyor",
         organization: response.data.org || "Bilinmiyor",
@@ -38,9 +87,9 @@ async function getIspInfo(ip: string) {
       };
     }
   } catch (error) {
-    console.log('ISP bilgisi alınamadı:', error);
+    console.log("ISP bilgisi alınamadı:", error);
   }
-  
+
   return {
     isp: "Bilinmiyor",
     organization: "Bilinmiyor",
@@ -53,70 +102,90 @@ async function getIspInfo(ip: string) {
   };
 }
 
-// Güvenlik analizi
 function getSecurityAnalysis(req: NextApiRequest, ip: string) {
   const userAgent = req.headers["user-agent"] || "";
   const acceptLanguage = req.headers["accept-language"] || "";
   const acceptEncoding = req.headers["accept-encoding"] || "";
-  
-  // Potansiyel bot tespiti
+
   const botIndicators = [
-    /bot/i, /crawler/i, /spider/i, /scraper/i, /wget/i, /curl/i,
-    /python/i, /requests/i, /axios/i, /httpx/i, /urllib/i
+    /bot/i,
+    /crawler/i,
+    /spider/i,
+    /scraper/i,
+    /wget/i,
+    /curl/i,
+    /python/i,
+    /requests/i,
+    /axios/i,
+    /httpx/i,
+    /urllib/i,
   ];
-  
-  const isBot = botIndicators.some(pattern => pattern.test(userAgent));
-  
-  // Şüpheli header analizi
+
+  const isBot = botIndicators.some((pattern) => pattern.test(userAgent));
+
   const suspiciousHeaders = [];
   if (!req.headers.accept) suspiciousHeaders.push("Accept header eksik");
-  if (!req.headers["accept-language"]) suspiciousHeaders.push("Accept-Language header eksik");
-  if (!req.headers["accept-encoding"]) suspiciousHeaders.push("Accept-Encoding header eksik");
+  if (!req.headers["accept-language"])
+    suspiciousHeaders.push("Accept-Language header eksik");
+  if (!req.headers["accept-encoding"])
+    suspiciousHeaders.push("Accept-Encoding header eksik");
   if (userAgent.length < 10) suspiciousHeaders.push("User-Agent çok kısa");
-  
-  // Risk skoru hesaplama (0-100)
+
   let riskScore = 0;
   if (isBot) riskScore += 30;
   if (suspiciousHeaders.length > 0) riskScore += suspiciousHeaders.length * 10;
-  if (ip.startsWith("192.168.") || ip.startsWith("10.") || ip.startsWith("172.")) riskScore += 5;
+  if (
+    ip.startsWith("192.168.") ||
+    ip.startsWith("10.") ||
+    ip.startsWith("172.")
+  )
+    riskScore += 5;
   if (!req.headers.referer) riskScore += 10;
-  
+
   return {
     isBot,
     riskScore: Math.min(riskScore, 100),
-    riskLevel: riskScore < 20 ? "Düşük" : riskScore < 50 ? "Orta" : riskScore < 80 ? "Yüksek" : "Kritik",
+    riskLevel:
+      riskScore < 20
+        ? "Düşük"
+        : riskScore < 50
+        ? "Orta"
+        : riskScore < 80
+        ? "Yüksek"
+        : "Kritik",
     suspiciousHeaders,
-    botProbability: isBot ? "Yüksek" : suspiciousHeaders.length > 2 ? "Orta" : "Düşük",
+    botProbability: isBot
+      ? "Yüksek"
+      : suspiciousHeaders.length > 2
+      ? "Orta"
+      : "Düşük",
   };
 }
 
-// Network performans metrikleri
 function getNetworkMetrics(req: NextApiRequest) {
   const startTime = Date.now();
   const responseTime = Date.now() - startTime;
-  
+
   return {
     responseTime: `${responseTime}ms`,
     requestSize: JSON.stringify(req.headers).length,
     timestamp: {
       iso: new Date().toISOString(),
       unix: Math.floor(Date.now() / 1000),
-      formatted: new Date().toLocaleString('tr-TR'),
+      formatted: new Date().toLocaleString("tr-TR"),
     },
     serverTime: {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       offset: new Date().getTimezoneOffset(),
-    }
+    },
   };
 }
 
-// Fingerprinting bilgileri
 function getFingerprint(req: NextApiRequest, ip: string) {
   const userAgent = req.headers["user-agent"] || "";
   const acceptLanguage = req.headers["accept-language"] || "";
   const acceptEncoding = req.headers["accept-encoding"] || "";
-  
-  // Unique fingerprint hash
+
   const fingerprintData = [
     ip,
     userAgent,
@@ -126,36 +195,188 @@ function getFingerprint(req: NextApiRequest, ip: string) {
     req.headers["sec-ch-ua"],
     req.headers["sec-ch-ua-mobile"],
     req.headers["sec-ch-ua-platform"],
-  ].join('|');
-  
-  const fingerprint = crypto.createHash('sha256').update(fingerprintData).digest('hex').substring(0, 16);
-  
+  ].join("|");
+
+  const fingerprint = crypto
+    .createHash("sha256")
+    .update(fingerprintData)
+    .digest("hex")
+    .substring(0, 16);
+
   return {
     id: fingerprint,
     uniqueIdentifiers: {
-      userAgentHash: crypto.createHash('md5').update(userAgent).digest('hex').substring(0, 8),
-      headerFingerprint: crypto.createHash('md5').update(JSON.stringify(req.headers)).digest('hex').substring(0, 8),
-      languageSignature: acceptLanguage.split(',')[0] || "unknown",
+      userAgentHash: crypto
+        .createHash("md5")
+        .update(userAgent)
+        .digest("hex")
+        .substring(0, 8),
+      headerFingerprint: crypto
+        .createHash("md5")
+        .update(JSON.stringify(req.headers))
+        .digest("hex")
+        .substring(0, 8),
+      languageSignature: acceptLanguage.split(",")[0] || "unknown",
     },
     clientHints: {
       platform: req.headers["sec-ch-ua-platform"] || "Bilinmiyor",
       mobile: req.headers["sec-ch-ua-mobile"] === "?1" ? "Evet" : "Hayır",
       brands: req.headers["sec-ch-ua"] || "Bilinmiyor",
-    }
+    },
   };
 }
 
-// Device ve browser bilgilerini al (enhanced)
 function getDeviceInfo(userAgent: string) {
   const parser = new UAParser(userAgent);
   const result = parser.getResult();
 
-  // Screen resolution analizi (eğer varsa)
+  let cpuArchitecture = result.cpu.architecture || "Bilinmiyor";
+  if (cpuArchitecture === "Bilinmiyor" || !cpuArchitecture) {
+    const ua = userAgent.toLowerCase();
+    if (ua.includes("arm64") || ua.includes("aarch64")) {
+      cpuArchitecture = "ARM64";
+    } else if (ua.includes("arm")) {
+      cpuArchitecture = "ARM";
+    } else if (
+      ua.includes("x86_64") ||
+      ua.includes("win64") ||
+      ua.includes("wow64")
+    ) {
+      cpuArchitecture = "x86_64";
+    } else if (
+      ua.includes("x86") ||
+      ua.includes("i386") ||
+      ua.includes("i686")
+    ) {
+      cpuArchitecture = "x86";
+    } else if (ua.includes("android") || ua.includes("mobile")) {
+      cpuArchitecture = "ARM (mobil)";
+    } else {
+      cpuArchitecture = "x86_64 (varsayılan)";
+    }
+  }
+
+  let osName = result.os.name || "Bilinmiyor";
+  let osVersion = result.os.version || "Bilinmiyor";
+  let osFullName = `${osName} ${osVersion}`.trim();
+
+  if (osName === "Bilinmiyor" || !osName) {
+    const ua = userAgent.toLowerCase();
+    if (ua.includes("windows nt 10.0")) {
+      osName = "Windows";
+      osVersion = "10/11";
+      osFullName = "Windows 10/11";
+    } else if (ua.includes("windows nt 6.3")) {
+      osName = "Windows";
+      osVersion = "8.1";
+      osFullName = "Windows 8.1";
+    } else if (ua.includes("windows nt 6.1")) {
+      osName = "Windows";
+      osVersion = "7";
+      osFullName = "Windows 7";
+    } else if (ua.includes("mac os x") || ua.includes("macos")) {
+      osName = "macOS";
+      const macMatch = ua.match(/mac os x ([\d_]+)/);
+      if (macMatch) {
+        osVersion = macMatch[1].replace(/_/g, ".");
+        osFullName = `macOS ${osVersion}`;
+      }
+    } else if (ua.includes("android")) {
+      osName = "Android";
+      const androidMatch = ua.match(/android ([\d.]+)/);
+      if (androidMatch) {
+        osVersion = androidMatch[1];
+        osFullName = `Android ${osVersion}`;
+      }
+    } else if (ua.includes("iphone") || ua.includes("ipad")) {
+      osName = "iOS";
+      const iosMatch = ua.match(/os ([\d_]+)/);
+      if (iosMatch) {
+        osVersion = iosMatch[1].replace(/_/g, ".");
+        osFullName = `iOS ${osVersion}`;
+      }
+    }
+  }
+
+  let engineName = result.engine.name || "Bilinmiyor";
+  let engineVersion = result.engine.version || "Bilinmiyor";
+  let engineFullName = `${engineName} ${engineVersion}`.trim();
+
+  if (engineName === "Bilinmiyor" || !engineName) {
+    const ua = userAgent.toLowerCase();
+    if (ua.includes("webkit") && ua.includes("chrome")) {
+      engineName = "Blink";
+      engineFullName = "Blink (Chromium)";
+    } else if (ua.includes("webkit") && ua.includes("safari")) {
+      engineName = "WebKit";
+      engineFullName = "WebKit (Safari)";
+    } else if (ua.includes("gecko") && ua.includes("firefox")) {
+      engineName = "Gecko";
+      engineFullName = "Gecko (Firefox)";
+    } else if (ua.includes("trident")) {
+      engineName = "Trident";
+      engineFullName = "Trident (Internet Explorer)";
+    }
+  }
+
+  let deviceType = result.device.type || "desktop";
+  let deviceVendor = result.device.vendor || "Bilinmiyor";
+  let deviceModel = result.device.model || "Bilinmiyor";
+
+  if (deviceVendor === "Bilinmiyor" || !deviceVendor) {
+    const ua = userAgent.toLowerCase();
+    if (ua.includes("iphone")) {
+      deviceVendor = "Apple";
+      deviceModel = "iPhone";
+      deviceType = "mobile";
+    } else if (ua.includes("ipad")) {
+      deviceVendor = "Apple";
+      deviceModel = "iPad";
+      deviceType = "tablet";
+    } else if (ua.includes("macintosh") || ua.includes("mac os")) {
+      deviceVendor = "Apple";
+      deviceModel = "Mac";
+      deviceType = "desktop";
+    } else if (ua.includes("samsung")) {
+      deviceVendor = "Samsung";
+      deviceType = ua.includes("mobile") ? "mobile" : "tablet";
+    } else if (ua.includes("android")) {
+      deviceType = ua.includes("mobile") ? "mobile" : "tablet";
+      if (ua.includes("sm-")) {
+        deviceVendor = "Samsung";
+      } else if (ua.includes("pixel")) {
+        deviceVendor = "Google";
+        deviceModel = "Pixel";
+      }
+    } else if (ua.includes("windows")) {
+      deviceType = "desktop";
+      deviceVendor = "PC";
+      deviceModel = "Windows PC";
+    }
+  }
+
+  let deviceFullName = "Bilinmiyor";
+  if (deviceVendor !== "Bilinmiyor" && deviceModel !== "Bilinmiyor") {
+    deviceFullName = `${deviceVendor} ${deviceModel}`;
+  } else if (deviceVendor !== "Bilinmiyor") {
+    deviceFullName = deviceVendor;
+  } else if (deviceModel !== "Bilinmiyor") {
+    deviceFullName = deviceModel;
+  } else {
+    if (deviceType === "mobile") {
+      deviceFullName = "📱 Mobil Cihaz";
+    } else if (deviceType === "tablet") {
+      deviceFullName = "📊 Tablet";
+    } else {
+      deviceFullName = "💻 Masaüstü Bilgisayar";
+    }
+  }
+
   const screenInfo = {
-    colorDepth: "Bilinmiyor",
-    screenResolution: "Bilinmiyor",
-    availableResolution: "Bilinmiyor",
-    devicePixelRatio: "Bilinmiyor",
+    colorDepth: "Bilinmiyor (client-side gerekli)",
+    screenResolution: "Bilinmiyor (client-side gerekli)",
+    availableResolution: "Bilinmiyor (client-side gerekli)",
+    devicePixelRatio: "Bilinmiyor (client-side gerekli)",
   };
 
   return {
@@ -163,40 +384,41 @@ function getDeviceInfo(userAgent: string) {
       name: result.browser.name || "Bilinmiyor",
       version: result.browser.version || "Bilinmiyor",
       major: result.browser.major || "Bilinmiyor",
-      fullName: `${result.browser.name || "Bilinmiyor"} ${result.browser.version || ""}`.trim(),
+      fullName: `${result.browser.name || "Bilinmiyor"} ${
+        result.browser.version || ""
+      }`.trim(),
     },
     device: {
-      model: result.device.model || "Bilinmiyor",
-      type: result.device.type || "desktop",
-      vendor: result.device.vendor || "Bilinmiyor",
-      fullName: `${result.device.vendor || ""} ${result.device.model || ""}`.trim() || "Bilinmiyor",
+      model: deviceModel,
+      type: deviceType,
+      vendor: deviceVendor,
+      fullName: deviceFullName,
     },
     engine: {
-      name: result.engine.name || "Bilinmiyor",
-      version: result.engine.version || "Bilinmiyor",
-      fullName: `${result.engine.name || "Bilinmiyor"} ${result.engine.version || ""}`.trim(),
+      name: engineName,
+      version: engineVersion,
+      fullName: engineFullName,
     },
     os: {
-      name: result.os.name || "Bilinmiyor",
-      version: result.os.version || "Bilinmiyor",
-      fullName: `${result.os.name || "Bilinmiyor"} ${result.os.version || ""}`.trim(),
+      name: osName,
+      version: osVersion,
+      fullName: osFullName,
     },
     cpu: {
-      architecture: result.cpu.architecture || "Bilinmiyor",
+      architecture: cpuArchitecture,
     },
     screen: screenInfo,
     capabilities: {
-      javascript: true, // API'ye erişebiliyorsa JS aktif
-      cookies: "Bilinmiyor",
-      localStorage: "Bilinmiyor",
-      sessionStorage: "Bilinmiyor",
-      webGL: "Bilinmiyor",
-      canvas: "Bilinmiyor",
-    }
+      javascript: true,
+      cookies: "Bilinmiyor (client-side gerekli)",
+      localStorage: "Bilinmiyor (client-side gerekli)",
+      sessionStorage: "Bilinmiyor (client-side gerekli)",
+      webGL: "Bilinmiyor (client-side gerekli)",
+      canvas: "Bilinmiyor (client-side gerekli)",
+    },
   };
 }
 
-// Bağlantı bilgilerini al (enhanced)
 function getConnectionInfo(req: NextApiRequest) {
   const acceptLanguage = req.headers["accept-language"];
   const acceptEncoding = req.headers["accept-encoding"];
@@ -205,11 +427,9 @@ function getConnectionInfo(req: NextApiRequest) {
   const dnt = req.headers.dnt;
   const upgradeInsecureRequests = req.headers["upgrade-insecure-requests"];
 
-  // HTTP/2 ve diğer protokol desteği
   const httpVersion = req.httpVersion || "1.1";
   const protocol = req.headers["x-forwarded-proto"] || "http";
-  
-  // Gelişmiş güvenlik başlıkları
+
   const securityHeaders = {
     strictTransportSecurity: req.headers["strict-transport-security"] || "Yok",
     contentSecurityPolicy: req.headers["content-security-policy"] || "Yok",
@@ -218,7 +438,6 @@ function getConnectionInfo(req: NextApiRequest) {
     referrerPolicy: req.headers["referrer-policy"] || "Yok",
   };
 
-  // Bandwidth ve performance hints
   const performanceHints = {
     saveData: req.headers["save-data"] === "on" ? "Etkin" : "Devre Dışı",
     downlink: req.headers["downlink"] || "Bilinmiyor",
@@ -242,11 +461,10 @@ function getConnectionInfo(req: NextApiRequest) {
       viewportWidth: req.headers["viewport-width"] || "Bilinmiyor",
       deviceMemory: req.headers["device-memory"] || "Bilinmiyor",
       dpr: req.headers.dpr || "Bilinmiyor",
-    }
+    },
   };
 }
 
-// IP türünü belirle
 function getIpType(ip: string): string {
   if (ip === "127.0.0.1" || ip === "::1") return "Loopback (Yerel)";
   if (ip.startsWith("192.168.")) return "Özel Ağ (192.168.x.x)";
@@ -261,7 +479,6 @@ function getIpType(ip: string): string {
   return "Genel IPv4";
 }
 
-// Ülke kodunu tam ülke adına çevir
 function getCountryName(countryCode: string): string {
   const countries: { [key: string]: string } = {
     US: "Amerika Birleşik Devletleri",
@@ -323,7 +540,6 @@ function getCountryName(countryCode: string): string {
   return countries[countryCode] || countryCode;
 }
 
-// IP aralığını hesapla
 function calculateIpRange(range: number[]): {
   start: string;
   end: string;
@@ -348,7 +564,10 @@ function calculateIpRange(range: number[]): {
   };
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -357,14 +576,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const ip = getClientIp(req);
     const userAgent = req.headers["user-agent"] || "";
 
-    // Tüm bilgileri paralel olarak al
-    const [deviceInfo, connectionInfo, securityInfo, networkMetrics, fingerprint, ispInfo] = await Promise.all([
+    const [
+      deviceInfo,
+      connectionInfo,
+      securityInfo,
+      networkMetrics,
+      fingerprint,
+      ispInfo,
+    ] = await Promise.all([
       Promise.resolve(getDeviceInfo(userAgent)),
       Promise.resolve(getConnectionInfo(req)),
       Promise.resolve(getSecurityAnalysis(req, ip)),
       Promise.resolve(getNetworkMetrics(req)),
       Promise.resolve(getFingerprint(req, ip)),
-      getIspInfo(ip)
+      getIspInfo(ip),
     ]);
 
     console.log(`IP aranıyor: ${ip}`);
@@ -399,19 +624,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             accept: req.headers.accept,
             contentType: req.headers["content-type"],
           },
-          sessionInfo: {
-            firstRequest: true, // Bu basit versiyonda her zaman true
-            requestCount: 1,
-            lastActivity: new Date().toISOString(),
-          }
+          sessionInfo: getSessionInfo(ip, userAgent),
         },
         analytics: {
-          pageLoadTime: `${Date.now() - networkMetrics.timestamp.unix * 1000}ms`,
+          pageLoadTime: `${
+            Date.now() - networkMetrics.timestamp.unix * 1000
+          }ms`,
           browserSupport: {
             es6: deviceInfo.browser.name !== "Internet Explorer",
             webGL: "Destekleniyor olabilir",
-            touchSupport: deviceInfo.device.type === "mobile" || deviceInfo.device.type === "tablet",
-            orientation: deviceInfo.device.type === "mobile" ? "Portrait/Landscape" : "Landscape",
+            touchSupport:
+              deviceInfo.device.type === "mobile" ||
+              deviceInfo.device.type === "tablet",
+            orientation:
+              deviceInfo.device.type === "mobile"
+                ? "Portrait/Landscape"
+                : "Landscape",
           },
           geoAccuracy: "Şehir seviyesi",
           dataFreshness: "Gerçek zamanlı",
@@ -424,15 +652,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           recommendations: [
             "Gerçek IP adresinizi öğrenmek için VPN'inizi kapatın",
             "Router ayarlarınızı kontrol edin",
-            "İnternet servis sağlayıcınızla iletişime geçin"
-          ]
+            "İnternet servis sağlayıcınızla iletişime geçin",
+          ],
         },
       });
     }
 
     const ipRange = calculateIpRange(geo.range);
 
-    // Gelişmiş konum analizi
     const locationAnalysis = {
       accuracy: "Şehir seviyesi (±5-50 km)",
       confidence: "Orta-Yüksek",
@@ -447,9 +674,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       timezone: {
         name: geo.timezone,
         offset: new Date().getTimezoneOffset() / -60,
-        isDST: new Date().getTimezoneOffset() !== new Date(new Date().getFullYear(), 0, 1).getTimezoneOffset(),
-        currentTime: new Date().toLocaleString('tr-TR', { timeZone: geo.timezone }),
-      }
+        isDST:
+          new Date().getTimezoneOffset() !==
+          new Date(new Date().getFullYear(), 0, 1).getTimezoneOffset(),
+        currentTime: new Date().toLocaleString("tr-TR", {
+          timeZone: geo.timezone,
+        }),
+      },
     };
 
     res.json({
@@ -487,20 +718,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           forwarded: req.headers["x-forwarded-for"],
           realIp: req.headers["x-real-ip"],
         },
-        sessionInfo: {
-          firstRequest: true,
-          requestCount: 1,
-          lastActivity: new Date().toISOString(),
-          sessionDuration: "0ms",
-        }
+        sessionInfo: getSessionInfo(ip, userAgent),
       },
       analytics: {
         pageLoadTime: `${Date.now() - networkMetrics.timestamp.unix * 1000}ms`,
         browserSupport: {
           es6: !deviceInfo.browser.name.includes("Internet Explorer"),
           webGL: "Muhtemelen destekleniyor",
-          touchSupport: deviceInfo.device.type === "mobile" || deviceInfo.device.type === "tablet" ? "Evet" : "Hayır",
-          orientation: deviceInfo.device.type === "mobile" ? "Portrait/Landscape" : "Landscape",
+          touchSupport:
+            deviceInfo.device.type === "mobile" ||
+            deviceInfo.device.type === "tablet"
+              ? "Evet"
+              : "Hayır",
+          orientation:
+            deviceInfo.device.type === "mobile"
+              ? "Portrait/Landscape"
+              : "Landscape",
           cookieSupport: "Test edilmedi",
           localStorageSupport: "Test edilmedi",
         },
@@ -517,20 +750,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         privacyLevel: securityInfo.riskLevel,
         dataRetention: "Veriler saklanmaz, gerçek zamanlı işlenir",
         recommendations: [
-          securityInfo.riskScore > 50 ? "Güvenlik riski tespit edildi, dikkatli olun" : "Güvenlik durumu normal görünüyor",
+          securityInfo.riskScore > 50
+            ? "Güvenlik riski tespit edildi, dikkatli olun"
+            : "Güvenlik durumu normal görünüyor",
           ispInfo.proxy ? "Proxy kullanımı tespit edildi" : "Direkt bağlantı",
-          ispInfo.mobile ? "Mobil bağlantı tespit edildi" : "Sabit bağlantı"
-        ]
+          ispInfo.mobile ? "Mobil bağlantı tespit edildi" : "Sabit bağlantı",
+        ],
       },
     });
   } catch (error) {
     console.error("Lookup hatası:", error);
-    
-    // Hata durumunda bile mümkün olan bilgileri döndür
+
     const deviceInfo = getDeviceInfo(req.headers["user-agent"] || "");
     const connectionInfo = getConnectionInfo(req);
     const securityInfo = getSecurityAnalysis(req, getClientIp(req));
-    
+
     res.status(500).json({
       error: "Sunucu hatası",
       details: (error as Error).message,
@@ -539,7 +773,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         connection: connectionInfo,
         security: securityInfo,
         timestamp: new Date().toISOString(),
-      }
+      },
     });
   }
 }

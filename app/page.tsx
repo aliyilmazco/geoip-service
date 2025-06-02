@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 interface LocationData {
   ip: string;
@@ -171,6 +171,7 @@ interface LocationData {
       requestCount?: number;
       lastActivity?: string;
       sessionDuration?: string;
+      sessionId?: string;
     };
   };
   analytics?: {
@@ -209,13 +210,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    // Sayfa yüklendiğinde otomatik IP sorgulama
-    setTimeout(() => {
-      getMyLocation();
-    }, 500);
-  }, []);
-
   const showLoading = () => {
     setLoading(true);
     setError("");
@@ -234,7 +228,7 @@ export default function Home() {
     setError("");
   };
 
-  const getMyLocation = async () => {
+  const getMyLocation = useCallback(async () => {
     showLoading();
     try {
       const response = await fetch("/api/lookup");
@@ -245,7 +239,13 @@ export default function Home() {
         "Sunucuya bağlanırken hata oluştu: " + (error as Error).message
       );
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    setTimeout(() => {
+      getMyLocation();
+    }, 500);
+  }, [getMyLocation]);
 
   const getCustomLocation = async () => {
     const ip = ipInput.trim();
@@ -286,6 +286,18 @@ export default function Home() {
           IP adresinizin konumunu, cihaz bilgilerinizi, güvenlik analizini ve
           çok daha fazlasını keşfedin
         </p>
+        <div className="author-info">
+          <p>
+            <a
+              href="https://aliyilmaz.co"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Ali Yılmaz
+            </a>{" "}
+            tarafından geliştirilmiştir
+          </p>
+        </div>
       </header>
 
       <div className="controls">
@@ -942,9 +954,22 @@ export default function Home() {
                     </div>
                     <div className="result-item">
                       <strong>⏰ Son Aktivite</strong>
-                      {result.requestInfo.sessionInfo?.lastActivity 
-                        ? new Date(result.requestInfo.sessionInfo.lastActivity).toLocaleString("tr-TR")
+                      {result.requestInfo.sessionInfo?.lastActivity
+                        ? new Date(
+                            result.requestInfo.sessionInfo.lastActivity
+                          ).toLocaleString("tr-TR")
                         : "Bilinmiyor"}
+                    </div>
+                    <div className="result-item">
+                      <strong>⏱️ Session Süresi</strong>
+                      {result.requestInfo.sessionInfo?.sessionDuration || "0ms"}
+                    </div>
+                    <div className="result-item">
+                      <strong>🆔 Session ID</strong>
+                      <code className="fingerprint-code">
+                        {result.requestInfo.sessionInfo?.sessionId ||
+                          "Bilinmiyor"}
+                      </code>
                     </div>
                     {result.requestInfo.headers?.origin && (
                       <div className="result-item">
@@ -1031,19 +1056,32 @@ export default function Home() {
 
       <footer className="footer">
         <div className="footer-content">
-          <p>
-            🔒 <strong>Gizliliğiniz önemlidir</strong> - Verileriniz saklanmaz,
-            sadece gerçek zamanlı analiz yapılır
-          </p>
-          <p>
-            ⚡ <strong>Gelişmiş GeoIP Servisi</strong> - ISP analizi, cihaz
-            tespiti, güvenlik kontrolü, ağ metrikleri ve comprehensive
-            fingerprinting ile
-          </p>
-          <p>
-            🌍 <strong>Veri Kaynakları:</strong> geoip-lite, IP-API.com,
-            UA-Parser ve çoklu güvenlik kontrolleri
-          </p>
+          <div className="developer-info">
+            <p>
+              👨‍💻 <strong>Ali Yılmaz</strong> tarafından geliştirilmiştir
+            </p>
+            <p>📧 İletişim: okethis@gmail.com | 🌐 GitHub: @aliyilmazco</p>
+          </div>
+          <div className="privacy-info">
+            <p>
+              🔒 <strong>Gizliliğiniz önemlidir</strong> - Verileriniz
+              saklanmaz, sadece gerçek zamanlı analiz yapılır
+            </p>
+            <p>
+              ⚡ <strong>Gelişmiş GeoIP Servisi</strong> - ISP analizi, cihaz
+              tespiti, güvenlik kontrolü, ağ metrikleri ve comprehensive
+              fingerprinting ile
+            </p>
+            <p>
+              🌍 <strong>Veri Kaynakları:</strong> geoip-lite, IP-API.com,
+              UA-Parser ve çoklu güvenlik kontrolleri
+            </p>
+          </div>
+          <div className="version-info">
+            <p>
+              📦 Version 1.0.0 | 🚀 Enhanced Edition | ⚡ Real-time Analysis
+            </p>
+          </div>
         </div>
       </footer>
     </div>

@@ -5,12 +5,25 @@
 }
 
 /* Dark mode override için global kurallar */
-input, button, select, textarea {
+input,
+button,
+select,
+textarea {
   color-scheme: light !important;
 }
 
 /* Tüm metin elementlerinin renkleri */
-h1, h2, h3, h4, h5, h6, p, span, div, strong, em {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+span,
+div,
+strong,
+em {
   color: inherit !important;
 }
 
@@ -265,7 +278,12 @@ body::before {
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%) !important;
+  background: linear-gradient(
+    135deg,
+    #667eea 0%,
+    #764ba2 50%,
+    #f093fb 100%
+  ) !important;
   color: white !important;
   box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -276,7 +294,12 @@ body::before {
 .action-button:hover {
   transform: translateY(-4px) scale(1.02);
   box-shadow: 0 16px 48px rgba(102, 126, 234, 0.4);
-  background: linear-gradient(135deg, #5a6fd8 0%, #6b4190 50%, #e185e9 100%) !important;
+  background: linear-gradient(
+    135deg,
+    #5a6fd8 0%,
+    #6b4190 50%,
+    #e185e9 100%
+  ) !important;
 }
 
 .action-button:disabled {
@@ -339,7 +362,12 @@ body::before {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%) !important;
+  background: linear-gradient(
+    135deg,
+    #667eea 0%,
+    #764ba2 50%,
+    #f093fb 100%
+  ) !important;
   color: white !important;
   box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
   border: 2px solid transparent !important;
@@ -348,7 +376,12 @@ body::before {
 .btn-primary:hover {
   transform: translateY(-4px) scale(1.02);
   box-shadow: 0 16px 48px rgba(102, 126, 234, 0.4);
-  background: linear-gradient(135deg, #5a6fd8 0%, #6b4190 50%, #e185e9 100%) !important;
+  background: linear-gradient(
+    135deg,
+    #5a6fd8 0%,
+    #6b4190 50%,
+    #e185e9 100%
+  ) !important;
 }
 
 .btn-primary:active {
@@ -552,16 +585,79 @@ body::before {
 
 .footer {
   text-align: center;
-  padding: 30px;
-  color: #718096;
+  padding: 40px 30px;
+  color: #718096 !important;
   font-size: 14px;
-  background: rgba(255, 255, 255, 0.05);
-  font-weight: 400;
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(102, 126, 234, 0.1);
+  margin-top: 30px;
 }
 
-.footer::before {
-  content: "✨";
-  margin-right: 8px;
+.footer-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.developer-info {
+  margin-bottom: 20px;
+  padding: 15px;
+  background: rgba(102, 126, 234, 0.1) !important;
+  border-radius: 12px;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.developer-info p {
+  margin: 5px 0;
+  color: #4a5568 !important;
+  font-weight: 500;
+}
+
+.developer-info strong {
+  color: #667eea !important;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.privacy-info {
+  margin-bottom: 20px;
+}
+
+.privacy-info p {
+  margin: 8px 0;
+  color: #718096 !important;
+  line-height: 1.6;
+}
+
+.version-info {
+  padding-top: 15px;
+  border-top: 1px solid rgba(102, 126, 234, 0.1);
+  font-style: italic;
+  opacity: 0.8;
+}
+
+.version-info p {
+  color: #a0aec0 !important;
+  font-size: 12px;
+}
+
+.author-info {
+  margin-top: 15px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.2) !important;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.author-info p {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9) !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 /* Responsive Design */
@@ -709,4 +805,33 @@ body::before {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Haritada Göster butonu stili */
+.map-link {
+  display: inline-block !important;
+  margin-left: 10px !important;
+  padding: 6px 12px !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  text-decoration: none !important;
+  border-radius: 8px !important;
+  font-size: 0.85rem !important;
+  font-weight: 500 !important;
+  transition: all 0.3s ease !important;
+  border: none !important;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3) !important;
+}
+
+.map-link:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4) !important;
+  background: linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%) !important;
+  color: white !important;
+  text-decoration: none !important;
+}
+
+.map-link:active {
+  transform: translateY(0px) !important;
+  box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3) !important;
 }

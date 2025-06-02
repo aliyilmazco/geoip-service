@@ -2,7 +2,6 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import geoip from "geoip-lite";
 import { UAParser } from "ua-parser-js";
 
-// Device ve browser bilgilerini al
 function getDeviceInfo(userAgent: string) {
   const parser = new UAParser(userAgent);
   const result = parser.getResult();
@@ -32,7 +31,6 @@ function getDeviceInfo(userAgent: string) {
   };
 }
 
-// Bağlantı bilgilerini al
 function getConnectionInfo(req: NextApiRequest) {
   const acceptLanguage = req.headers["accept-language"];
   const acceptEncoding = req.headers["accept-encoding"];
@@ -53,7 +51,6 @@ function getConnectionInfo(req: NextApiRequest) {
   };
 }
 
-// IP türünü belirle
 function getIpType(ip: string): string {
   if (ip === "127.0.0.1" || ip === "::1") return "Loopback (Yerel)";
   if (ip.startsWith("192.168.")) return "Özel Ağ (192.168.x.x)";
@@ -68,7 +65,6 @@ function getIpType(ip: string): string {
   return "Genel IPv4";
 }
 
-// Ülke kodunu tam ülke adına çevir
 function getCountryName(countryCode: string): string {
   const countries: { [key: string]: string } = {
     US: "Amerika Birleşik Devletleri",
@@ -130,7 +126,6 @@ function getCountryName(countryCode: string): string {
   return countries[countryCode] || countryCode;
 }
 
-// IP aralığını hesapla
 function calculateIpRange(range: number[]): {
   start: string;
   end: string;
@@ -155,7 +150,6 @@ function calculateIpRange(range: number[]): {
   };
 }
 
-// IP adresi geçerliliğini kontrol et
 function isValidIp(ip: string): boolean {
   const ipv4Regex =
     /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
@@ -172,7 +166,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     const { ip } = req.query;
     const userAgent = req.headers["user-agent"] || "";
 
-    // Device ve browser bilgilerini al
     const deviceInfo = getDeviceInfo(userAgent);
     const connectionInfo = getConnectionInfo(req);
 
