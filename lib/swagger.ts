@@ -53,7 +53,7 @@ All responses are in JSON format with consistent error handling.
         description: "Development server",
       },
       {
-        url: "https://aliyilmaz.co",
+        url: "https://ip.aliyilmaz.co/",
         description: "Production server",
       },
     ],
