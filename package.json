@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "mkdir -p .next/server/data && cp node_modules/geoip-lite/data/*.dat .next/server/data/ || true",
     "build": "next build",
+    "postbuild": "mkdir -p .next/server/data && cp node_modules/geoip-lite/data/*.dat .next/server/data/ || true",
     "start": "next start",
     "lint": "next lint",
     "update-geo": "node node_modules/geoip-lite/scripts/update-data.js"
@@ -18,6 +20,7 @@
     "geoip-country": "^5.0.202505302342",
     "geoip-lite": "^1.4.10",
     "js-base64": "^3.7.7",
+    "maxmind": "^4.3.27",
     "maxmind-db-reader": "^0.2.1",
     "next": "15.1.0",
     "node-fetch": "^3.3.2",

@@ -1,6 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // App router is now stable in Next.js 13+
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.module.rules.push({
+        test: /\.dat$/,
+        type: "asset/resource",
+        generator: {
+          filename: "data/[name][ext]",
+        },
+      });
+    }
+    return config;
+  },
 };
 
 module.exports = nextConfig;

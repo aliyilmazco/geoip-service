@@ -987,29 +987,6 @@ export default function Home() {
                 </div>
               )}
 
-              {/* Recommendations */}
-              {result.details?.recommendations && (
-                <div className="detail-info recommendations">
-                  <h4>💡 Sistem Önerileri ve Analiz Sonuçları</h4>
-                  <ul className="recommendations-list">
-                    {result.details.recommendations.map((rec, index) => (
-                      <li key={index} className="recommendation-item">
-                        <span className="recommendation-icon">
-                          {rec.includes("risk") || rec.includes("dikkat")
-                            ? "⚠️"
-                            : rec.includes("güvenlik") || rec.includes("normal")
-                            ? "✅"
-                            : rec.includes("proxy") || rec.includes("mobil")
-                            ? "ℹ️"
-                            : "💡"}
-                        </span>
-                        {rec}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
               {/* Data Quality & Privacy Info */}
               {result.details && (
                 <div className="detail-info privacy-info">
