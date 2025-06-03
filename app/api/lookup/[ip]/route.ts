@@ -4,6 +4,83 @@ import { UAParser } from "ua-parser-js";
 import crypto from "crypto";
 import axios from "axios";
 
+/**
+ * @swagger
+ * /api/lookup/{ip}:
+ *   get:
+ *     tags:
+ *       - IP Lookup
+ *     summary: Analyze specific IP address
+ *     description: |
+ *       Performs comprehensive analysis of a specific IP address with all the same features as the main lookup endpoint:
+ *       - Geographic location (country, region, city, coordinates)
+ *       - ISP and network information
+ *       - Device and browser detection (from client headers)
+ *       - Security analysis and bot detection
+ *       - Digital fingerprinting
+ *       - Network performance metrics
+ *
+ *       This endpoint allows you to analyze any public IP address, not just the client's IP.
+ *     parameters:
+ *       - in: path
+ *         name: ip
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: ipv4
+ *           pattern: '^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+ *         description: IPv4 address to analyze
+ *         example: "8.8.8.8"
+ *     responses:
+ *       200:
+ *         description: Successful IP analysis
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/IPLookupResponse'
+ *             example:
+ *               success: true
+ *               ip: "8.8.8.8"
+ *               location:
+ *                 country: "United States"
+ *                 countryCode: "US"
+ *                 region: "CA"
+ *                 regionName: "California"
+ *                 city: "Mountain View"
+ *                 latitude: 37.4056
+ *                 longitude: -122.0775
+ *                 timezone: "America/Los_Angeles"
+ *               isp:
+ *                 isp: "Google LLC"
+ *                 organization: "Google Public DNS"
+ *                 asn: "AS15169"
+ *                 asnName: "GOOGLE"
+ *                 mobile: false
+ *                 proxy: false
+ *                 hosting: true
+ *                 zipCode: "94043"
+ *       400:
+ *         description: Invalid IP address format
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               error: "Geçersiz IP adresi formatı"
+ *               details: "Lütfen geçerli bir IPv4 adresi girin (örn: 8.8.8.8)"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               error: "GeoIP veritabanı mevcut değil"
+ *               details: "geoip-lite paketi düzgün yüklenmemiş olabilir"
+ */
+
 async function getIspInfo(ip: string) {
   try {
     const response = await axios.get(
@@ -23,6 +100,19 @@ async function getIspInfo(ip: string) {
         proxy: response.data.proxy || false,
         hosting: response.data.hosting || false,
         zipCode: response.data.zip || "Bilinmiyor",
+        locationData:
+          response.data.lat && response.data.lon
+            ? {
+                country: response.data.country || null,
+                countryCode: response.data.countryCode || null,
+                region: response.data.region || null,
+                regionName: response.data.regionName || null,
+                city: response.data.city || null,
+                timezone: response.data.timezone || null,
+                latitude: response.data.lat,
+                longitude: response.data.lon,
+              }
+            : null,
       };
     }
   } catch (error) {
@@ -38,6 +128,7 @@ async function getIspInfo(ip: string) {
     proxy: false,
     hosting: false,
     zipCode: "Bilinmiyor",
+    locationData: null,
   };
 }
 
@@ -378,7 +469,7 @@ export async function GET(
 
     const geo = lookupIP(ip);
 
-    if (!geo) {
+    if (!geo && !ispInfo.locationData) {
       return NextResponse.json({
         ip,
         requestedIp: ip,
@@ -412,30 +503,45 @@ export async function GET(
       });
     }
 
+    const locationData =
+      geo ||
+      (ispInfo.locationData
+        ? {
+            country: ispInfo.locationData.countryCode,
+            region: ispInfo.locationData.region,
+            city: ispInfo.locationData.city,
+            timezone: ispInfo.locationData.timezone,
+            ll: [
+              ispInfo.locationData.latitude,
+              ispInfo.locationData.longitude,
+            ] as [number, number],
+          }
+        : null);
+
     const ipRange = geo?.range ? calculateIpRange(geo.range) : null;
 
     const locationAnalysis = {
       accuracy: "Şehir seviyesi (±5-50 km)",
       confidence: "Orta-Yüksek",
-      dataSource: "geoip-lite + IP-API",
+      dataSource: geo ? "geoip-lite + IP-API" : "IP-API",
       lastUpdated: "Son 30 gün içinde",
-      coordinates: geo?.ll
+      coordinates: locationData?.ll
         ? {
-            latitude: geo.ll[0],
-            longitude: geo.ll[1],
+            latitude: locationData.ll[0],
+            longitude: locationData.ll[1],
             precision: "~10km radius",
             format: "Decimal Degrees (DD)",
           }
         : null,
-      timezone: geo?.timezone
+      timezone: locationData?.timezone
         ? {
-            name: geo.timezone,
+            name: locationData.timezone,
             offset: new Date().getTimezoneOffset() / -60,
             isDST:
               new Date().getTimezoneOffset() !==
               new Date(new Date().getFullYear(), 0, 1).getTimezoneOffset(),
             currentTime: new Date().toLocaleString("tr-TR", {
-              timeZone: geo.timezone,
+              timeZone: locationData.timezone,
             }),
           }
         : null,
@@ -445,15 +551,24 @@ export async function GET(
       ip,
       requestedIp: ip,
       ipType: getIpType(ip),
-      country: geo?.country || null,
-      countryName: getCountryName(geo?.country || ""),
-      city: geo?.city || null,
-      region: geo?.region || null,
-      timezone: geo?.timezone || null,
-      coordinates: geo?.ll
+      country:
+        locationData?.country || ispInfo.locationData?.countryCode || null,
+      countryName: getCountryName(
+        locationData?.country || ispInfo.locationData?.countryCode || ""
+      ),
+      city: locationData?.city || ispInfo.locationData?.city || null,
+      region: locationData?.region || ispInfo.locationData?.regionName || null,
+      timezone:
+        locationData?.timezone || ispInfo.locationData?.timezone || null,
+      coordinates: locationData?.ll
         ? {
-            latitude: geo.ll[0],
-            longitude: geo.ll[1],
+            latitude: locationData.ll[0],
+            longitude: locationData.ll[1],
+          }
+        : ispInfo.locationData
+        ? {
+            latitude: ispInfo.locationData.latitude,
+            longitude: ispInfo.locationData.longitude,
           }
         : null,
       range: geo?.range || null,

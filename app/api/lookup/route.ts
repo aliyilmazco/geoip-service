@@ -4,6 +4,116 @@ import { UAParser } from "ua-parser-js";
 import crypto from "crypto";
 import axios from "axios";
 
+/**
+ * @swagger
+ * /api/lookup:
+ *   get:
+ *     tags:
+ *       - IP Lookup
+ *     summary: Analyze current client IP address
+ *     description: |
+ *       Performs comprehensive analysis of the client's IP address, including:
+ *       - Geographic location (country, region, city, coordinates)
+ *       - ISP and network information
+ *       - Device and browser detection
+ *       - Security analysis and bot detection
+ *       - Session tracking and analytics
+ *       - Digital fingerprinting
+ *       - Network performance metrics
+ *     responses:
+ *       200:
+ *         description: Successful IP analysis
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/IPLookupResponse'
+ *             example:
+ *               success: true
+ *               ip: "8.8.8.8"
+ *               location:
+ *                 country: "United States"
+ *                 countryCode: "US"
+ *                 region: "CA"
+ *                 regionName: "California"
+ *                 city: "Mountain View"
+ *                 latitude: 37.4056
+ *                 longitude: -122.0775
+ *                 timezone: "America/Los_Angeles"
+ *               isp:
+ *                 isp: "Google LLC"
+ *                 organization: "Google Public DNS"
+ *                 asn: "AS15169"
+ *                 asnName: "GOOGLE"
+ *                 mobile: false
+ *                 proxy: false
+ *                 hosting: true
+ *                 zipCode: "94043"
+ *               device:
+ *                 browser:
+ *                   name: "Chrome"
+ *                   version: "91.0.4472.124"
+ *                   major: "91"
+ *                 os:
+ *                   name: "Windows"
+ *                   version: "10"
+ *                 device:
+ *                   type: "desktop"
+ *                   model: "Desktop Computer"
+ *                   vendor: "Generic"
+ *                 cpu:
+ *                   architecture: "amd64"
+ *               security:
+ *                 isBot: false
+ *                 riskScore: 15
+ *                 riskLevel: "Düşük"
+ *                 suspiciousHeaders: []
+ *                 botProbability: "Düşük"
+ *               session:
+ *                 firstRequest: true
+ *                 requestCount: 1
+ *                 lastActivity: "2024-01-15T10:30:00.000Z"
+ *                 sessionDuration: "0ms"
+ *                 sessionId: "a1b2c3d4"
+ *               network:
+ *                 responseTime: "45ms"
+ *                 requestSize: 1024
+ *                 timestamp:
+ *                   iso: "2024-01-15T10:30:00.000Z"
+ *                   unix: 1705316200
+ *                   formatted: "15.01.2024 13:30:00"
+ *                 serverTime:
+ *                   timezone: "Europe/Istanbul"
+ *                   offset: -180
+ *               fingerprint:
+ *                 hash: "d41d8cd98f00b204e9800998ecf8427e"
+ *                 components:
+ *                   userAgent: "Mozilla/5.0..."
+ *                   acceptLanguage: "en-US,en;q=0.9"
+ *                   acceptEncoding: "gzip, deflate, br"
+ *                   screenResolution: "1920x1080"
+ *                 uniqueness: "Yüksek"
+ *               analytics:
+ *                 pageViews: 1
+ *                 visitDuration: "0ms"
+ *                 referrer: "https://google.com"
+ *                 language: "en-US"
+ *                 languages: ["en-US", "en", "tr"]
+ *                 browserSupport:
+ *                   es6: true
+ *                   webgl: true
+ *                   localStorage: true
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               error: "GeoIP veritabanı mevcut değil"
+ *               details: "geoip-lite paketi düzgün yüklenmemiş olabilir"
+ */
+
 const sessionStore: {
   [key: string]: { count: number; firstSeen: number; lastSeen: number };
 } = {};
@@ -84,6 +194,19 @@ async function getIspInfo(ip: string) {
         proxy: response.data.proxy || false,
         hosting: response.data.hosting || false,
         zipCode: response.data.zip || "Bilinmiyor",
+        locationData:
+          response.data.lat && response.data.lon
+            ? {
+                country: response.data.country || null,
+                countryCode: response.data.countryCode || null,
+                region: response.data.region || null,
+                regionName: response.data.regionName || null,
+                city: response.data.city || null,
+                timezone: response.data.timezone || null,
+                latitude: response.data.lat,
+                longitude: response.data.lon,
+              }
+            : null,
       };
     }
   } catch (error) {
@@ -99,6 +222,7 @@ async function getIspInfo(ip: string) {
     proxy: false,
     hosting: false,
     zipCode: "Bilinmiyor",
+    locationData: null,
   };
 }
 
@@ -595,7 +719,7 @@ export async function GET(request: NextRequest) {
 
     const geo = lookupIP(ip);
 
-    if (!geo) {
+    if (!geo && !ispInfo.locationData) {
       return NextResponse.json({
         ip,
         ipType: getIpType(ip),
@@ -659,28 +783,43 @@ export async function GET(request: NextRequest) {
 
     const ipRange = geo?.range ? calculateIpRange(geo.range) : null;
 
+    const locationData =
+      geo ||
+      (ispInfo.locationData
+        ? {
+            country: ispInfo.locationData.countryCode,
+            region: ispInfo.locationData.region,
+            city: ispInfo.locationData.city,
+            timezone: ispInfo.locationData.timezone,
+            ll: [
+              ispInfo.locationData.latitude,
+              ispInfo.locationData.longitude,
+            ] as [number, number],
+          }
+        : null);
+
     const locationAnalysis = {
       accuracy: "Şehir seviyesi (±5-50 km)",
       confidence: "Orta-Yüksek",
-      dataSource: "geoip-lite + IP-API",
+      dataSource: geo ? "geoip-lite + IP-API" : "IP-API",
       lastUpdated: "Son 30 gün içinde",
-      coordinates: geo?.ll
+      coordinates: locationData?.ll
         ? {
-            latitude: geo.ll[0],
-            longitude: geo.ll[1],
+            latitude: locationData.ll[0],
+            longitude: locationData.ll[1],
             precision: "~10km radius",
             format: "Decimal Degrees (DD)",
           }
         : null,
-      timezone: geo?.timezone
+      timezone: locationData?.timezone
         ? {
-            name: geo.timezone,
+            name: locationData.timezone,
             offset: new Date().getTimezoneOffset() / -60,
             isDST:
               new Date().getTimezoneOffset() !==
               new Date(new Date().getFullYear(), 0, 1).getTimezoneOffset(),
             currentTime: new Date().toLocaleString("tr-TR", {
-              timeZone: geo.timezone,
+              timeZone: locationData.timezone,
             }),
           }
         : null,
@@ -689,15 +828,24 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       ip,
       ipType: getIpType(ip),
-      country: geo?.country || null,
-      countryName: getCountryName(geo?.country || ""),
-      city: geo?.city || null,
-      region: geo?.region || null,
-      timezone: geo?.timezone || null,
-      coordinates: geo?.ll
+      country:
+        locationData?.country || ispInfo.locationData?.countryCode || null,
+      countryName: getCountryName(
+        locationData?.country || ispInfo.locationData?.countryCode || ""
+      ),
+      city: locationData?.city || ispInfo.locationData?.city || null,
+      region: locationData?.region || ispInfo.locationData?.regionName || null,
+      timezone:
+        locationData?.timezone || ispInfo.locationData?.timezone || null,
+      coordinates: locationData?.ll
         ? {
-            latitude: geo.ll[0],
-            longitude: geo.ll[1],
+            latitude: locationData.ll[0],
+            longitude: locationData.ll[1],
+          }
+        : ispInfo.locationData
+        ? {
+            latitude: ispInfo.locationData.latitude,
+            longitude: ispInfo.locationData.longitude,
           }
         : null,
       range: geo?.range || null,
