@@ -3,7 +3,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-15.1.0-black)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![API Documentation](https://img.shields.io/badge/API-Swagger-orange)](http://localhost:3000/docs)
+[![API Documentation](https://img.shields.io/badge/API-Swagger-orange)](http://api.aliyilmaz.co/docs)
 
 ## 📋 İçindekiler
 
@@ -513,9 +513,9 @@ Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için [LICENSE](LICE
 
 ## 📞 İletişim
 
-- **GitHub**: [Issues](https://github.com/username/geoip-service/issues)
-- **Email**: developer@example.com
-- **Website**: [https://geoip-service.vercel.app](https://geoip-service.vercel.app)
+- **GitHub**: [Issues](https://github.com/aliyilmazco/geoip-service/issues)
+- **Email**: contact@aliyilmaz.co
+- **Website**: [https://api.aliyilmaz.co](https://api.aliyilmaz.co)
 
 ## 🙏 Teşekkürler
 
