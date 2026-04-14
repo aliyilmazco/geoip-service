@@ -1,438 +1,229 @@
 import swaggerJSDoc from "swagger-jsdoc";
 
+import { getOpenApiServers, runtimeConfig } from "@/lib/runtime-config";
+
 const options: swaggerJSDoc.Options = {
   definition: {
     openapi: "3.0.0",
     info: {
       title: "GeoIP Service API",
-      version: "1.0.0",
-      description: `
-# GeoIP Service API
-
-A comprehensive geolocation and IP analysis service built with Next.js 15. This API provides detailed information about IP addresses including geographic location, ISP details, device information, security analysis, and much more.
-
-## Features
-
-- 🌍 **Geographic Location**: Country, region, city, latitude/longitude
-- 🏢 **ISP Information**: Internet Service Provider, organization, ASN details
-- 📱 **Device Analysis**: Browser, operating system, device type detection
-- 🔒 **Security Analysis**: Bot detection, risk scoring, threat assessment
-- 📊 **Session Tracking**: Request counting, session duration, activity monitoring
-- 🌐 **Network Metrics**: Response times, request analysis, server information
-- 🔍 **Digital Fingerprinting**: Unique visitor identification
-- 📈 **Analytics**: Comprehensive visitor analytics and insights
-
-## Rate Limiting
-
-- No rate limiting currently implemented
-- ISP data fetching has 5-second timeout
-- Session data is automatically cleaned every 5 minutes
-
-## Authentication
-
-No authentication required for public endpoints.
-
-## Response Format
-
-All responses are in JSON format with consistent error handling.
-      `,
-      termsOfService: "https://github.com/aliyilmazco/geoip-service",
+      version: "1.1.0",
+      description:
+        "Public API for IP lookups and website probes. Responses carry a stable request ID, typed error details, rate-limit metadata, and live DNS/HTTP/TLS analysis for public website targets.",
       contact: {
-        name: "API Support",
+        name: "GeoIP Service Support",
+        email: runtimeConfig.supportEmail,
         url: "https://github.com/aliyilmazco/geoip-service/issues",
-        email: "support@example.com",
       },
       license: {
         name: "MIT",
         url: "https://opensource.org/licenses/MIT",
       },
     },
-    servers: [
-      {
-        url: "http://localhost:3000",
-        description: "Development server",
-      },
-      {
-        url: "https://ip.aliyilmaz.co/",
-        description: "Production server",
-      },
-    ],
+    servers: getOpenApiServers(),
     tags: [
       {
-        name: "IP Lookup",
-        description: "IP address geolocation and analysis endpoints",
+        name: "Unified Lookup",
+        description:
+          "Lookup endpoints that auto-detect whether the target should be handled as an IP lookup or a website probe.",
       },
     ],
     components: {
       schemas: {
-        IPLookupResponse: {
+        RateLimitInfo: {
           type: "object",
           properties: {
-            success: {
-              type: "boolean",
-              description: "Whether the request was successful",
-            },
-            ip: {
+            scope: { type: "string", example: "lookup.current" },
+            limit: { type: "integer", example: 20 },
+            remaining: { type: "integer", example: 19 },
+            resetAt: { type: "string", format: "date-time" },
+            retryAfterSeconds: { type: "integer", example: 60 },
+          },
+        },
+        LookupErrorDetails: {
+          type: "object",
+          required: ["code", "reason", "explanation"],
+          properties: {
+            code: { type: "string", example: "TARGET_NOT_ALLOWED" },
+            reason: { type: "string", example: "Blocked resolved address" },
+            explanation: {
               type: "string",
-              description: "The analyzed IP address",
-              example: "8.8.8.8",
+              example:
+                "The hostname resolved to a private or otherwise non-public address.",
             },
-            location: {
+            recommendations: {
+              type: "array",
+              items: { type: "string" },
+            },
+            retryable: { type: "boolean" },
+            retryAfterSeconds: { type: "integer" },
+            rateLimit: {
+              allOf: [{ $ref: "#/components/schemas/RateLimitInfo" }],
+            },
+          },
+        },
+        LocationAnalysis: {
+          type: "object",
+          properties: {
+            accuracy: { type: "string", example: "City-level (±5-50 km)" },
+            confidence: { type: "string", example: "Medium-High" },
+            dataSource: { type: "string", example: "geoip-lite" },
+            lastUpdated: { type: "string", example: "Within the last 30 days" },
+            diagnosis: {
+              type: "string",
+              nullable: true,
+              example:
+                "GeoIP database files were not available at runtime. Optional ISP enrichment is disabled.",
+            },
+            coordinates: {
               type: "object",
+              nullable: true,
               properties: {
-                country: {
-                  type: "string",
-                  description: "Country name",
-                  example: "United States",
-                },
-                countryCode: {
-                  type: "string",
-                  description: "ISO 3166-1 alpha-2 country code",
-                  example: "US",
-                },
-                region: {
-                  type: "string",
-                  description: "Region/state code",
-                  example: "CA",
-                },
-                regionName: {
-                  type: "string",
-                  description: "Region/state name",
-                  example: "California",
-                },
-                city: {
-                  type: "string",
-                  description: "City name",
-                  example: "Mountain View",
-                },
-                latitude: {
-                  type: "number",
-                  description: "Latitude coordinate",
-                  example: 37.4056,
-                },
-                longitude: {
-                  type: "number",
-                  description: "Longitude coordinate",
-                  example: -122.0775,
-                },
-                timezone: {
-                  type: "string",
-                  description: "Timezone identifier",
-                  example: "America/Los_Angeles",
-                },
+                latitude: { type: "number" },
+                longitude: { type: "number" },
+                precision: { type: "string" },
+                format: { type: "string" },
               },
             },
-            isp: {
+            timezone: {
               type: "object",
+              nullable: true,
               properties: {
-                isp: {
-                  type: "string",
-                  description: "Internet Service Provider name",
-                  example: "Google LLC",
-                },
-                organization: {
-                  type: "string",
-                  description: "Organization name",
-                  example: "Google Public DNS",
-                },
-                asn: {
-                  type: "string",
-                  description: "Autonomous System Number",
-                  example: "AS15169",
-                },
-                asnName: {
-                  type: "string",
-                  description: "ASN organization name",
-                  example: "GOOGLE",
-                },
-                mobile: {
-                  type: "boolean",
-                  description: "Whether the connection is mobile",
-                },
-                proxy: {
-                  type: "boolean",
-                  description: "Whether the IP is a proxy",
-                },
-                hosting: {
-                  type: "boolean",
-                  description: "Whether the IP is from a hosting provider",
-                },
-                zipCode: {
-                  type: "string",
-                  description: "ZIP/postal code",
-                  example: "94043",
-                },
-              },
-            },
-            device: {
-              type: "object",
-              properties: {
-                userAgent: {
-                  type: "string",
-                  description: "Raw user agent string",
-                },
-                browser: {
-                  type: "object",
-                  properties: {
-                    name: {
-                      type: "string",
-                      example: "Chrome",
-                    },
-                    version: {
-                      type: "string",
-                      example: "91.0.4472.124",
-                    },
-                    major: {
-                      type: "string",
-                      example: "91",
-                    },
-                  },
-                },
-                os: {
-                  type: "object",
-                  properties: {
-                    name: {
-                      type: "string",
-                      example: "Windows",
-                    },
-                    version: {
-                      type: "string",
-                      example: "10",
-                    },
-                  },
-                },
-                device: {
-                  type: "object",
-                  properties: {
-                    type: {
-                      type: "string",
-                      example: "desktop",
-                    },
-                    model: {
-                      type: "string",
-                      example: "Desktop Computer",
-                    },
-                    vendor: {
-                      type: "string",
-                      example: "Generic",
-                    },
-                  },
-                },
-                cpu: {
-                  type: "object",
-                  properties: {
-                    architecture: {
-                      type: "string",
-                      example: "amd64",
-                    },
-                  },
-                },
-              },
-            },
-            security: {
-              type: "object",
-              properties: {
-                isBot: {
-                  type: "boolean",
-                  description: "Whether the request appears to be from a bot",
-                },
-                riskScore: {
-                  type: "number",
-                  description: "Risk score from 0-100",
-                  example: 15,
-                },
-                riskLevel: {
-                  type: "string",
-                  enum: ["Düşük", "Orta", "Yüksek", "Kritik"],
-                  description: "Risk level assessment",
-                },
-                suspiciousHeaders: {
-                  type: "array",
-                  items: {
-                    type: "string",
-                  },
-                  description: "List of suspicious header issues",
-                },
-                botProbability: {
-                  type: "string",
-                  enum: ["Düşük", "Orta", "Yüksek"],
-                  description: "Probability that the request is from a bot",
-                },
-              },
-            },
-            session: {
-              type: "object",
-              properties: {
-                firstRequest: {
-                  type: "boolean",
-                  description:
-                    "Whether this is the first request from this session",
-                },
-                requestCount: {
-                  type: "number",
-                  description: "Number of requests from this session",
-                  example: 1,
-                },
-                lastActivity: {
-                  type: "string",
-                  format: "date-time",
-                  description: "ISO timestamp of last activity",
-                },
-                sessionDuration: {
-                  type: "string",
-                  description: "Duration of the session",
-                  example: "0ms",
-                },
-                sessionId: {
-                  type: "string",
-                  description: "Truncated session identifier",
-                  example: "a1b2c3d4",
-                },
-              },
-            },
-            network: {
-              type: "object",
-              properties: {
-                responseTime: {
-                  type: "string",
-                  description: "Response time",
-                  example: "50ms",
-                },
-                requestSize: {
-                  type: "number",
-                  description: "Size of the request in bytes",
-                },
-                timestamp: {
-                  type: "object",
-                  properties: {
-                    iso: {
-                      type: "string",
-                      format: "date-time",
-                      description: "ISO timestamp",
-                    },
-                    unix: {
-                      type: "number",
-                      description: "Unix timestamp",
-                    },
-                    formatted: {
-                      type: "string",
-                      description: "Formatted timestamp",
-                    },
-                  },
-                },
-                serverTime: {
-                  type: "object",
-                  properties: {
-                    timezone: {
-                      type: "string",
-                      description: "Server timezone",
-                    },
-                    offset: {
-                      type: "number",
-                      description: "Timezone offset in minutes",
-                    },
-                  },
-                },
-              },
-            },
-            fingerprint: {
-              type: "object",
-              properties: {
-                hash: {
-                  type: "string",
-                  description: "MD5 hash of the fingerprint",
-                },
-                components: {
-                  type: "object",
-                  properties: {
-                    userAgent: {
-                      type: "string",
-                      description: "User agent component",
-                    },
-                    acceptLanguage: {
-                      type: "string",
-                      description: "Accept-Language header",
-                    },
-                    acceptEncoding: {
-                      type: "string",
-                      description: "Accept-Encoding header",
-                    },
-                    screenResolution: {
-                      type: "string",
-                      description: "Estimated screen resolution",
-                    },
-                  },
-                },
-                uniqueness: {
-                  type: "string",
-                  enum: ["Düşük", "Orta", "Yüksek"],
-                  description: "Fingerprint uniqueness level",
-                },
-              },
-            },
-            analytics: {
-              type: "object",
-              properties: {
-                pageViews: {
-                  type: "number",
-                  description: "Number of page views",
-                },
-                visitDuration: {
-                  type: "string",
-                  description: "Visit duration",
-                },
-                referrer: {
-                  type: "string",
-                  description: "Referrer URL",
-                },
-                language: {
-                  type: "string",
-                  description: "Browser language",
-                },
-                languages: {
-                  type: "array",
-                  items: {
-                    type: "string",
-                  },
-                  description: "All supported languages",
-                },
-                browserSupport: {
-                  type: "object",
-                  properties: {
-                    es6: {
-                      type: "boolean",
-                      description: "ES6 support",
-                    },
-                    webgl: {
-                      type: "boolean",
-                      description: "WebGL support",
-                    },
-                    localStorage: {
-                      type: "boolean",
-                      description: "localStorage support",
-                    },
-                  },
-                },
+                name: { type: "string" },
+                offset: { type: "number" },
+                isDST: { type: "boolean" },
+                currentTime: { type: "string" },
               },
             },
           },
         },
-        ErrorResponse: {
+        LookupBase: {
           type: "object",
+          required: ["lookupType", "query", "ip"],
           properties: {
-            success: {
-              type: "boolean",
-              example: false,
+            status: { type: "string", enum: ["ok", "error"] },
+            lookupType: { type: "string", enum: ["ip", "website"] },
+            query: { type: "string" },
+            normalizedTarget: { type: "string" },
+            requestId: { type: "string", example: "2f7f16bc-0f86-4cf6-9091-d285e8d06f9a" },
+            timestamp: { type: "string", format: "date-time" },
+            warnings: {
+              type: "array",
+              items: { type: "string" },
             },
-            error: {
-              type: "string",
-              description: "Error message",
-            },
-            details: {
-              type: "string",
-              description: "Additional error details",
+            ip: { type: "string", example: "8.8.8.8" },
+            rateLimit: {
+              $ref: "#/components/schemas/RateLimitInfo",
             },
           },
+        },
+        LookupErrorResponse: {
+          allOf: [
+            { $ref: "#/components/schemas/LookupBase" },
+            {
+              type: "object",
+              required: ["status", "error", "details"],
+              properties: {
+                status: { type: "string", enum: ["error"] },
+                error: { type: "string", example: "Rate limit exceeded" },
+                details: {
+                  $ref: "#/components/schemas/LookupErrorDetails",
+                },
+              },
+            },
+          ],
+        },
+        IpLookupResponse: {
+          allOf: [
+            { $ref: "#/components/schemas/LookupBase" },
+            {
+              type: "object",
+              required: ["status", "lookupType"],
+              properties: {
+                status: { type: "string", enum: ["ok"] },
+                lookupType: { type: "string", enum: ["ip"] },
+                requestedIp: { type: "string" },
+                ipType: { type: "string", example: "Public IPv4" },
+                country: { type: "string", nullable: true },
+                countryName: { type: "string", nullable: true },
+                city: { type: "string", nullable: true },
+                region: { type: "string", nullable: true },
+                timezone: { type: "string", nullable: true },
+                coordinates: {
+                  type: "object",
+                  nullable: true,
+                  properties: {
+                    latitude: { type: "number" },
+                    longitude: { type: "number" },
+                  },
+                },
+                details: {
+                  type: "object",
+                  properties: {
+                    provider: { type: "string" },
+                    note: { type: "string" },
+                    recommendations: {
+                      type: "array",
+                      items: { type: "string" },
+                    },
+                  },
+                },
+                location: {
+                  $ref: "#/components/schemas/LocationAnalysis",
+                },
+              },
+            },
+          ],
+        },
+        WebsiteCheck: {
+          type: "object",
+          properties: {
+            id: { type: "string" },
+            label: { type: "string" },
+            status: { type: "string", enum: ["pass", "warn", "fail", "info"] },
+            severity: { type: "string", enum: ["low", "medium", "high"] },
+            message: { type: "string" },
+            recommendation: { type: "string" },
+          },
+        },
+        WebsiteLookupResponse: {
+          allOf: [
+            { $ref: "#/components/schemas/LookupBase" },
+            {
+              type: "object",
+              required: ["status", "lookupType"],
+              properties: {
+                status: { type: "string", enum: ["ok"] },
+                lookupType: { type: "string", enum: ["website"] },
+                website: {
+                  type: "object",
+                  properties: {
+                    url: { type: "string" },
+                    hostname: { type: "string" },
+                    protocol: { type: "string", example: "https" },
+                    checks: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/WebsiteCheck" },
+                    },
+                  },
+                },
+                security: {
+                  type: "object",
+                  properties: {
+                    riskScore: { type: "number" },
+                    riskLevel: { type: "string" },
+                    suspiciousHeaders: {
+                      type: "array",
+                      items: { type: "string" },
+                    },
+                  },
+                },
+                location: {
+                  $ref: "#/components/schemas/LocationAnalysis",
+                },
+              },
+            },
+          ],
         },
       },
     },

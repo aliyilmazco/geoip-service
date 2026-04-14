@@ -1,530 +1,304 @@
-# 🌍 GeoIP Service - Gelişmiş IP Lokasyon ve Cihaz Analiz Servisi
+# GeoIP Service
 
 [![Next.js](https://img.shields.io/badge/Next.js-15.1.0-black)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue)](https://www.typescriptlang.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![API Documentation](https://img.shields.io/badge/API-Swagger-orange)](http://ip.aliyilmaz.co/docs)
 
-## 📋 İçindekiler
+GeoIP Service is a Next.js application that analyzes both IP addresses and website targets through a single lookup flow. It combines geolocation, ISP enrichment, device and connection signals, website DNS/HTTP/TLS inspection, and interactive Swagger documentation.
 
-- [Genel Bakış](#genel-bakış)
-- [Özellikler](#özellikler)
-- [Demo ve Dokümantasyon](#demo-ve-dokümantasyon)
-- [Kurulum](#kurulum)
-- [Kullanım](#kullanım)
-- [API Referansı](#api-referansı)
-- [Proje Yapısı](#proje-yapısı)
-- [Konfigürasyon](#konfigürasyon)
-- [Geliştirme](#geliştirme)
-- [Dağıtım](#dağıtım)
-- [Sorun Giderme](#sorun-giderme)
-- [Katkıda Bulunma](#katkıda-bulunma)
+<p align="center">
+  <img src="public/brand/screenshot-hero.png" alt="GeoIP Service — Hero and lookup panel" width="720" />
+</p>
 
-## 🌍 Genel Bakış
+<p align="center">
+  <img src="public/brand/screenshot-analysis.png" alt="GeoIP Service — Website analysis results with interactive map" width="720" />
+</p>
 
-GeoIP Service, IP adreslerinin coğrafi konumunu ve detaylı cihaz bilgilerini analiz eden gelişmiş bir Next.js uygulamasıdır. Bu servis, kullanıcıların IP adreslerini sorgulayarak konum, ISP, güvenlik, cihaz ve ağ analizi bilgileri sunar.
+<p align="center">
+  <img src="public/brand/screenshot-details.png" alt="GeoIP Service — Detailed HTTP, TLS, and IP panels" width="720" />
+</p>
 
-### Ana Özellikler
+## Contents
 
-- **🌐 Coğrafi Lokasyon**: IP adreslerinin şehir, ülke ve koordinat bilgileri
-- **📱 Cihaz Analizi**: Tarayıcı, işletim sistemi, cihaz türü ve mimari bilgileri
-- **🔒 Güvenlik Analizi**: Bot tespiti, risk skoru ve güvenlik değerlendirmeleri
-- **📡 Ağ Analizi**: ISP bilgileri, bağlantı türü ve performans metrikleri
-- **🔍 Parmak İzi Analizi**: Benzersiz cihaz kimlik tespiti
-- **⚡ Gerçek Zamanlı**: Anlık sorgulama ve yanıt
-- **🌙 Dark Mode**: Modern ve kullanıcı dostu arayüz
-- **📚 API Dokümantasyonu**: Swagger UI ile interaktif API dokümantasyonu
+- [Overview](#overview)
+- [Features](#features)
+- [Endpoints](#endpoints)
+- [Getting Started](#getting-started)
+- [Usage](#usage)
+- [Response Notes](#response-notes)
+- [Project Structure](#project-structure)
+- [Development](#development)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
 
-## 🚀 Demo ve Dokümantasyon
+## Overview
 
-### Canlı Demo
+The service supports two main analysis modes:
 
-- **Ana Sayfa**: [http://localhost:3000](http://localhost:3000)
-- **API Dokümantasyonu**: [http://localhost:3000/docs](http://localhost:3000/docs)
+- IP lookup: analyzes the current client IP or a provided IPv4/IPv6 address.
+- Website lookup: accepts a domain or full HTTP/HTTPS URL, then inspects DNS, redirects, HTTP response metadata, TLS certificate data, and basic SEO/security signals.
 
-### API Endpoints
+The web UI is designed for progressive disclosure. Summary cards surface the most important interpretation first, while deeper technical panels stay collapsed until needed.
 
-- **Mevcut IP**: `GET /api/lookup`
-- **Belirli IP**: `GET /api/lookup/{ip}`
-- **Swagger Spec**: `GET /api/swagger`
+## Features
 
-### Hızlı Test
+- Unified target detection for IPs, domains, and full URLs
+- Geographic location estimates with country, region, city, timezone, and coordinates
+- ISP enrichment with ASN, organization, proxy, hosting, and mobile connection signals
+- Device and browser parsing from request headers
+- Risk scoring, suspicious header detection, and bot heuristics
+- Optional Turso-backed persistence for target lookup history and latest resolved IP inventory
+- In-memory rate limiting with `Retry-After` and `X-RateLimit-*` headers for lookup and Swagger traffic
+- Website inspection for DNS, redirects, status codes, headers, TLS, robots.txt, sitemap.xml, and HTML metadata
+- Interactive Swagger UI backed by a live OpenAPI spec
+- JSON-first API responses that mirror what the UI renders
 
-```bash
-# Mevcut IP'nizi analiz edin
-curl http://localhost:3000/api/lookup
+## Endpoints
 
-# Belirli bir IP'yi analiz edin
-curl http://localhost:3000/api/lookup/8.8.8.8
-```
+- `GET /api/lookup`
+  Returns analysis for the current client IP.
+- `GET /api/lookup?target={target}`
+  Accepts an IP address, domain, or full URL and auto-detects the appropriate analysis mode.
+- `GET /api/lookup/{target}`
+  Compatibility route for manual path-based targets.
+- `GET /api/swagger`
+  Returns the OpenAPI JSON spec used by Swagger UI.
+- `GET /docs`
+  Loads the embedded Swagger UI page.
 
-## ✨ Özellikler
+## Getting Started
 
-### Coğrafi Lokasyon
+### Requirements
 
-- Ülke, şehir, bölge bilgileri
-- GPS koordinatları (enlem/boylam)
-- Zaman dilimi bilgisi
-- IP aralığı analizi
+- Node.js 22 or newer
+- npm 8 or newer
 
-### Cihaz ve Tarayıcı Analizi
-
-- Tarayıcı türü, versiyonu ve motoru
-- İşletim sistemi detayları
-- Cihaz türü (masaüstü, mobil, tablet)
-- CPU mimarisi
-- Ekran özellikleri
-
-### ISP ve Ağ Bilgileri
-
-- İnternet Servis Sağlayıcısı
-- Organizasyon bilgileri
-- ASN (Autonomous System Number)
-- Mobil/sabit bağlantı tespiti
-- Proxy/VPN tespiti
-- Hosting servisi tespiti
-
-### Güvenlik ve Risk Analizi
-
-- Bot probability skoru
-- Risk seviyesi değerlendirmesi
-- Şüpheli header tespiti
-- Güvenlik önerileri
-
-### Performance ve Analytics
-
-- Yanıt süresi ölçümü
-- Session takibi
-- Browser compatibility
-- Network performance hints
-
-## 🚀 Kurulum
-
-### Gereksinimler
-
-- **Node.js**: 18.0 veya üzeri
-- **npm**: 8.0 veya üzeri
-- **Git**: Versiyon kontrolü için
-
-### Adım Adım Kurulum
-
-1. **Projeyi Klonlayın**
-
-   ```bash
-   git clone https://github.com/username/geoip-service.git
-   cd geoip-service
-   ```
-
-2. **Bağımlılıkları Yükleyin**
-
-   ```bash
-   npm install
-   ```
-
-3. **GeoIP Veritabanını Güncelleyin**
-
-   ```bash
-   npm run update-geo
-   ```
-
-4. **Geliştirme Sunucusunu Başlatın**
-
-   ```bash
-   npm run dev
-   ```
-
-5. **Uygulamayı Açın**
-   ```
-   http://localhost:3000
-   ```
-
-## 📖 Kullanım
-
-### Web Arayüzü
-
-1. Ana sayfaya gidin: `http://localhost:3000`
-2. IP adresi girin veya kendi IP'nizi analiz edin
-3. Detaylı sonuçları görüntüleyin
-
-### API Kullanımı
-
-#### Kendi IP'nizi Sorgulama
+### Install
 
 ```bash
-curl http://localhost:3000/api/lookup
+git clone https://github.com/aliyilmazco/geoip-service.git
+cd geoip-service
+npm install
 ```
 
-#### Belirli IP Sorgulama
+### Optional GeoIP Data Refresh
 
 ```bash
-curl http://localhost:3000/api/lookup/8.8.8.8
+npm run update-geo
 ```
 
-#### JavaScript ile Kullanım
+### Environment Configuration
 
-```javascript
-// Kendi IP'nizi sorgulama
-const response = await fetch("/api/lookup");
+```bash
+cp .env.example .env.local
+```
+
+Recommended defaults:
+
+- Keep `TRUST_PROXY_HEADERS=false` during local development unless you are behind a trusted reverse proxy.
+- Leave `GEOIP_DATA_PATH` empty unless you need to force a custom GeoIP data directory.
+- Keep `ALLOW_INSECURE_IP_API=false` unless you explicitly want the optional `ip-api.com` ISP enrichment fallback.
+- Set `PUBLIC_APP_URL` and `SUPPORT_EMAIL` so the generated OpenAPI document matches your deployment.
+- Set `TURSO_LOGGING_ENABLED=true`, `TURSO_DATABASE_URL`, and `TURSO_AUTH_TOKEN` if you want target lookups written to Turso.
+
+### Start the Development Server
+
+```bash
+npm run dev
+```
+
+The app runs on `http://localhost:3001`.
+
+## Usage
+
+### Web UI
+
+1. Open `http://localhost:3001`.
+2. Enter an IP address, domain, or full URL.
+3. Review the summary cards first.
+4. Expand the advanced panels if you need HTTP, TLS, request context, or connection detail.
+
+### API Examples
+
+Analyze the current client IP:
+
+```bash
+curl http://localhost:3001/api/lookup
+```
+
+Analyze a specific IP address:
+
+```bash
+curl "http://localhost:3001/api/lookup?target=8.8.8.8"
+```
+
+Analyze a domain:
+
+```bash
+curl "http://localhost:3001/api/lookup?target=example.com"
+```
+
+Analyze a full URL:
+
+```bash
+curl "http://localhost:3001/api/lookup?target=https://openai.com"
+```
+
+Use the compatibility path route:
+
+```bash
+curl "http://localhost:3001/api/lookup/8.8.8.8"
+```
+
+Fetch the OpenAPI spec:
+
+```bash
+curl http://localhost:3001/api/swagger
+```
+
+### JavaScript Example
+
+```ts
+const response = await fetch("/api/lookup?target=example.com");
 const data = await response.json();
 
-// Belirli IP sorgulama
-const response = await fetch("/api/lookup/8.8.8.8");
-const data = await response.json();
-```
-
-## 🔧 API Referansı
-
-### 📚 Interaktif API Dokümantasyonu
-
-Bu proje, **Swagger UI** ile tam özellikli API dokümantasyonu içerir:
-
-- **Dokümantasyon URL**: [http://localhost:3000/docs](http://localhost:3000/docs)
-- **OpenAPI Spec**: [http://localhost:3000/api/swagger](http://localhost:3000/api/swagger)
-
-Swagger UI üzerinden:
-
-- ✅ Tüm endpoint'leri keşfedin
-- ✅ Parametreleri test edin
-- ✅ Gerçek zamanlı API çağrıları yapın
-- ✅ Response örneklerini görün
-- ✅ Schema detaylarını inceleyin
-
-### Endpoint'ler
-
-#### `GET /api/lookup`
-
-Kullanıcının kendi IP adresini analiz eder.
-
-**Yanıt Örneği:**
-
-```json
-{
-  "ip": "203.0.113.1",
-  "ipType": "Genel IPv4",
-  "country": "TR",
-  "countryName": "Türkiye",
-  "city": "Istanbul",
-  "coordinates": {
-    "latitude": 41.0082,
-    "longitude": 28.9784
-  },
-  "device": {
-    "browser": {
-      "name": "Chrome",
-      "version": "120.0.0.0"
-    },
-    "os": {
-      "name": "Windows",
-      "version": "10"
-    }
-  },
-  "isp": {
-    "isp": "Turk Telekom",
-    "organization": "TTNET"
-  }
+if (!response.ok) {
+  console.error(data.error);
+} else {
+  console.log(data.lookupType, data.requestId, data);
 }
 ```
 
-#### `GET /api/lookup/[ip]`
+## Response Notes
 
-Belirtilen IP adresini analiz eder.
+- Field names remain stable across UI and API usage.
+- Responses now include stable `status`, `requestId`, and `timestamp` fields.
+- Lookup responses include top-level `rateLimit` metadata, and public endpoints expose matching `X-RateLimit-*` or `Retry-After` headers.
+- Repeated requests can return `429 Too Many Requests` with `Retry-After` guidance.
+- Error responses always include a structured `details.code` value.
+- Human-readable values such as `error`, `reason`, `recommendations`, and risk labels are English.
+- Website lookups may return partial technical data even when a full fetch fails.
+- When location data cannot be produced, `location.diagnosis` can explain whether the GeoIP database was unavailable, the IP had no GeoIP match, or ISP fallback was disabled/missed.
+- Local or private IP addresses can return limited location data while still exposing device, request, and risk signals.
+- Bare `GET /api/lookup` current-IP requests are not persisted, but target-based lookups can be retained in Turso when logging is enabled.
+- Website probes reject loopback, private, link-local, and other non-public targets before DNS, HTTP, or TLS probing continues.
 
-**Parametreler:**
+## Project Structure
 
-- `ip` (string): Analiz edilecek IP adresi (IPv4 veya IPv6)
-
-**Örnek Kullanım:**
-
-```
-GET /api/lookup/8.8.8.8
-GET /api/lookup/2001:4860:4860::8888
-```
-
-### Yanıt Yapısı
-
-API yanıtları aşağıdaki ana bölümleri içerir:
-
-- **ip**: IP adresi bilgileri
-- **device**: Cihaz ve tarayıcı bilgileri
-- **location**: Coğrafi konum bilgileri
-- **isp**: İnternet servis sağlayıcısı bilgileri
-- **security**: Güvenlik analizi
-- **network**: Ağ performans metrikleri
-- **analytics**: Browser uyumluluk ve analitik
-- **fingerprint**: Cihaz parmak izi
-
-### Hata Kodları
-
-- **400**: Geçersiz IP adresi formatı
-- **404**: IP adresi bulunamadı
-- **500**: Sunucu hatası
-- **429**: Çok fazla istek (rate limiting)
-
-## 📁 Proje Yapısı
-
-```
-geoip-service/
-├── app/                    # Next.js App Router
-│   ├── api/               # API endpoints
-│   │   └── lookup/        # IP lookup API
-│   │       ├── route.ts   # Ana lookup endpoint
-│   │       └── [ip]/      # Dinamik IP endpoint
-│   │           └── route.ts
-│   ├── globals.css        # Global stiller
-│   ├── layout.tsx         # Ana layout
-│   └── page.tsx           # Ana sayfa
-├── lib/                   # Utility kütüphaneleri
-│   └── geoip-safe.ts     # GeoIP güvenli wrapper
-├── public/               # Statik dosyalar
-│   └── data/            # GeoIP veritabanı dosyaları
-├── package.json         # Proje bağımlılıkları
-├── next.config.js       # Next.js konfigürasyonu
-├── tsconfig.json        # TypeScript konfigürasyonu
-└── README.md           # Bu dosya
-```
-
-### Dosya Açıklamaları
-
-#### `/app/api/lookup/route.ts`
-
-- Ana IP lookup endpoint'i
-- Kullanıcının kendi IP'sini analiz eder
-- Session yönetimi ve analytics
-
-#### `/app/api/lookup/[ip]/route.ts`
-
-- Dinamik IP lookup endpoint'i
-- Belirtilen IP adresini analiz eder
-- IP validasyonu ve hata yönetimi
-
-#### `/lib/geoip-safe.ts`
-
-- GeoIP-lite için güvenli wrapper
-- Hata yönetimi ve fallback mekanizması
-- Build-time sorunlarını çözer
-
-#### `/app/page.tsx`
-
-- React-based frontend arayüzü
-- Dark mode desteği
-- Responsive tasarım
-
-## ⚙️ Konfigürasyon
-
-### Environment Variables
-
-```bash
-# .env.local
-GEOIP_LITE_DATA_PATH=/custom/path/to/geoip/data
-NODE_ENV=production
-NEXT_PUBLIC_API_BASE_URL=https://yourapi.com
+```text
+app/
+  api/lookup/              Query-based lookup endpoint (GET /api/lookup)
+  api/lookup/[...target]/  Path-based catch-all route (GET /api/lookup/{target})
+  api/swagger/             OpenAPI spec endpoint
+  docs/                    Embedded Swagger UI page
+  page.tsx                 Main lookup interface
+  layout.tsx               Root layout with metadata
+  globals.css              Global styles and CSS custom properties
+components/
+  geoip-result-view.tsx    Result rendering and advanced technical panels
+  location-map-panel.tsx   Map container with dynamic loading
+  location-map-canvas.tsx  Leaflet-based interactive map
+  site-chrome.tsx          Shared hero and footer UI
+  swagger-ui-embed.tsx     Swagger UI React wrapper
+lib/
+  geoip-safe.ts            GeoIP database wrapper with fallback
+  ip-analysis.ts           IP, device, risk, and network helpers
+  ip-lookup.ts             Targeted IP lookup flow
+  logger.ts                Event logging utility
+  lookup-dispatch.ts       Route target dispatcher
+  lookup-log-store.ts      Turso persistence layer
+  lookup-response.ts       Structured response builders
+  lookup-target.ts         Target classification and normalization
+  lookup-types.ts          TypeScript type definitions
+  network-policy.ts        IP scope and hostname policy checks
+  request-utils.ts         Request context and client IP utilities
+  runtime-config.ts        Environment variable parsing with defaults
+  security.ts              Rate limiting, URL validation, sanitization
+  swagger.ts               OpenAPI schema definition
+  ttl-cache.ts             In-memory TTL cache
+  turso.ts                 Turso database client
+  website-analysis.ts      Website DNS, HTTP, TLS probing
+scripts/
+  dev-preflight.js         Pre-dev port conflict detection
+  clean-next.js            Build artifact cleanup
+  port-guard.js            Port availability checker
+tests/
+  routes.test.ts           API route integration tests
+  lookup-target.test.ts    Target classification tests
+  security.test.ts         Rate limiting and security tests
+  lookup-persistence.test.ts  Turso persistence tests
+public/
+  brand/                   Logo and brand assets
+  sw.js                    Cleanup service worker
 ```
 
-### Next.js Konfigürasyonu
+## Development
 
-```javascript
-// next.config.js
-const nextConfig = {
-  webpack: (config, { isServer }) => {
-    if (isServer) {
-      // GeoIP data dosyalarını kopyala
-      config.module.rules.push({
-        test: /\.dat$/,
-        type: "asset/resource",
-        generator: {
-          filename: "data/[name][ext]",
-        },
-      });
-    }
-    return config;
-  },
-};
-```
+### Available Scripts
 
-## 🛠️ Geliştirme
+- `npm run dev` starts the development server on port `3001` using `.next-dev`
+- `npm run dev:clean` clears both `.next-dev` and `.next` before starting
+- `npm run build` creates a production build
+- `npm run start` starts the production server on port `3001`
+- `npm run lint` runs Next.js linting
+- `npm test` runs the Node.js test suite with TypeScript stripping
+- `npm run update-geo` refreshes the `geoip-lite` data
 
-### Geliştirme Komutları
+### Documentation
 
-```bash
-# Geliştirme sunucusu
-npm run dev
+After starting the app locally:
 
-# Production build
-npm run build
+- Home page: `http://localhost:3001`
+- Swagger UI: `http://localhost:3001/docs`
+- OpenAPI JSON: `http://localhost:3001/api/swagger`
 
-# Production sunucusu
-npm start
+## Troubleshooting
 
-# Linting
-npm run lint
+### Location data is missing for an IP
 
-# GeoIP veritabanı güncelleme
-npm run update-geo
-```
+- Check whether the IP is private or local.
+- Try a public IP address such as `8.8.8.8`.
+- Refresh the GeoIP dataset with `npm run update-geo`.
 
-### Geliştirme Ortamı Kurulumu
+### Website analysis returns limited data
 
-1. **VS Code Extensions** (önerilen):
+- Verify that the target domain resolves publicly.
+- Confirm the site is reachable over HTTP or HTTPS.
+- Retry with a full URL if the domain redirects in a non-standard way.
+- Loopback, private, link-local, and internal targets are rejected by design.
 
-   - TypeScript Hero
-   - Prettier
-   - ESLint
-   - Next.js Extension Pack
+### Local development server does not start
 
-2. **Git Hooks** kurulumu:
-   ```bash
-   npm install --save-dev husky
-   npx husky install
-   ```
+- Make sure port `3001` is available.
+- Reinstall dependencies with `npm install` if the lockfile changed.
+- Stop any older Next.js process before starting a new one on the same port.
+- Run `npm run dev:clean` after switching branches, after `npm run build`, or after editing routes, layouts, or global CSS.
 
-### Kod Standartları
+### Development shows `MODULE_NOT_FOUND` for `.next` or `.next-dev` chunks
 
-- **TypeScript**: Strict mode aktif
-- **ESLint**: Next.js recommended rules
-- **Prettier**: Kod formatlama
-- **Commit Convention**: Conventional Commits
+- This usually means a running dev server is reading stale server chunks.
+- Development output now lives in `.next-dev`, while production build output stays in `.next`.
+- Do not run `next dev` directly; use `npm run dev` or `npm run dev:clean` so the guard scripts can stop port and chunk drift issues.
 
-## 🚀 Dağıtım
+### `GET /sw.js 404` appears in the browser console
 
-### Vercel (Önerilen)
+- Older browsers may still try to update a previously registered service worker.
+- This project now serves a cleanup worker at `/sw.js` to clear stale caches and unregister that old worker.
+- After one refresh cycle, the repeated `sw.js` 404 log should disappear.
 
-1. **GitHub'a Push**
+### GeoIP falls back to `null`
 
-   ```bash
-   git push origin main
-   ```
+- The API can continue to respond even if `geoip-lite` cannot load its local database.
+- At runtime the service checks `GEOIP_DATA_PATH`, `GEODATADIR`, `node_modules/geoip-lite/data`, `public/data`, `.next/server/data`, and `.next-dev/server/data` in that order.
+- Check that at least one of those directories contains the GeoIP `.dat` files, and refresh the package data with `npm run update-geo` if needed.
+- If a lookup still returns no coordinates, inspect `location.diagnosis` in the API response for the immediate cause.
 
-2. **Vercel'e Deploy**
-   - Vercel dashboard'a gidin
-   - GitHub repository'yi bağlayın
-   - Otomatik deploy başlayacak
+### Test runner shows loader warnings
 
-### Docker
+- `npm test` uses a small custom loader so Node can resolve the repo's `@/` import alias during the test run.
+- On newer Node versions you may still see experimental loader warnings; these warnings do not fail the suite.
 
-```dockerfile
-# Dockerfile
-FROM node:18-alpine
+## License
 
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-
-COPY . .
-RUN npm run build
-
-EXPOSE 3000
-CMD ["npm", "start"]
-```
-
-### Manual Deployment
-
-```bash
-# Production build
-npm run build
-
-# Dosyaları sunucuya upload edin
-# PM2 ile çalıştırın
-pm2 start npm --name "geoip-service" -- start
-```
-
-## 🔍 Sorun Giderme
-
-### Yaygın Sorunlar
-
-#### 1. GeoIP Database Hatası
-
-```
-Error: ENOENT: no such file or directory, open 'geoip-country.dat'
-```
-
-**Çözüm:**
-
-```bash
-npm run update-geo
-npm run build
-```
-
-#### 2. TypeScript Hatası
-
-```
-Property 'es6' does not exist on type 'undefined'
-```
-
-**Çözüm:**
-
-- API yanıtlarında `browserSupport` nesnesinin varlığını kontrol edin
-- Safe navigation (`?.`) kullanın
-
-#### 3. CORS Hatası
-
-```
-Access to fetch at 'localhost:3000' from origin 'localhost:3000' has been blocked
-```
-
-**Çözüm:**
-
-```javascript
-// next.config.js
-const nextConfig = {
-  async headers() {
-    return [
-      {
-        source: "/api/:path*",
-        headers: [{ key: "Access-Control-Allow-Origin", value: "*" }],
-      },
-    ];
-  },
-};
-```
-
-### Debug Modları
-
-```bash
-# Verbose logging
-DEBUG=* npm run dev
-
-# API debugging
-curl -v http://localhost:3000/api/lookup
-
-# Network debugging
-NODE_ENV=development npm run dev
-```
-
-## 🤝 Katkıda Bulunma
-
-### Katkı Süreci
-
-1. **Fork** edin
-2. **Feature branch** oluşturun (`git checkout -b feature/amazing-feature`)
-3. **Commit** edin (`git commit -m 'Add some amazing feature'`)
-4. **Push** edin (`git push origin feature/amazing-feature`)
-5. **Pull Request** açın
-
-### Kod Katkısı Kuralları
-
-- Test yazın
-- Dokümantasyonu güncelleyin
-- TypeScript tiplerini kullanın
-- ESLint kurallarına uyun
-
-## 📝 Lisans
-
-Bu proje MIT lisansı altında lisanslanmıştır. Detaylar için [LICENSE](LICENSE) dosyasına bakın.
-
-## 📞 İletişim
-
-- **GitHub**: [Issues](https://github.com/aliyilmazco/geoip-service/issues)
-- **Email**: contact@aliyilmaz.co
-- **Website**: [https://ip.aliyilmaz.co](https://ip.aliyilmaz.co)
-
-## 🙏 Teşekkürler
-
-- [GeoIP-lite](https://github.com/geoip-lite/node-geoip) - IP geolocation
-- [UA-Parser-js](https://github.com/faisalman/ua-parser-js) - User agent parsing
-- [IP-API](https://ip-api.com/) - ISP information
-- [Next.js](https://nextjs.org/) - React framework
-- [Vercel](https://vercel.com/) - Hosting platform
-
----
-
-⭐ Eğer bu proje işinize yaradıysa, GitHub'da **star** vermeyi unutmayın!
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
