@@ -1,3 +1,4 @@
+const path = require("path");
 const { PHASE_DEVELOPMENT_SERVER } = require("next/constants");
 
 module.exports = (phase) => {
@@ -6,6 +7,7 @@ module.exports = (phase) => {
   /** @type {import('next').NextConfig} */
   const nextConfig = {
     distDir: isDevelopmentServer ? ".next-dev" : ".next",
+    outputFileTracingRoot: path.resolve(__dirname),
     webpack: (config, { isServer }) => {
       if (isServer) {
         config.module.rules.push({
